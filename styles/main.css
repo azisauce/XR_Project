@@ -80,7 +80,7 @@ canvas {
 .ui-controls #score-result {
 	display: inline-block;
 	min-width: 1.8em;
-	color: #d45f2e;
+	color: #85A947;
 }
 .ui-controls #score-result:after {
 	content: "\200b";

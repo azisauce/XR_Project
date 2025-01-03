@@ -22,9 +22,30 @@ const diceArray = [];
 initPhysics();
 initScene();
 
+
+function handleDeviceMotion(event) {
+    const currentTime = new Date().getTime();
+    if ((currentTime - lastUpdate) > SHAKE_TIMEOUT) {
+        const acceleration = event.accelerationIncludingGravity;
+        if (!acceleration) return;
+        
+        const x = acceleration.x || 0;
+        const y = acceleration.y || 0;
+        const z = acceleration.z || 0;
+        
+        const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
+        
+        if (totalAcceleration > SHAKE_THRESHOLD) {
+            lastUpdate = currentTime;
+            throwDice();
+        }
+    }
+}
 window.addEventListener('resize', updateSceneSize);
 window.addEventListener('dblclick', throwDice);
 rollBtn.addEventListener('click', throwDice);
+window.addEventListener('devicemotion', handleDeviceMotion);
+
 
 function initScene() {
 
@@ -269,10 +290,17 @@ function addDiceEvents(dice) {
 }
 
 function showRollResults(score) {
+    let isSummable = false
     if (scoreResult.innerHTML === '') {
         scoreResult.innerHTML += score;
     } else {
         scoreResult.innerHTML += ('+' + score);
+        isSummable = true;
+    }
+    if (isSummable) {
+        const scores = scoreResult.innerHTML.split('+').map(Number);
+        const sum = scores.reduce((a, b) => a + b, 0);
+        scoreResult.innerHTML += ` = ${sum} !`;
     }
 }
 

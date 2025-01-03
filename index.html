@@ -1,24 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <title>My example of exercice core</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-        <link rel="stylesheet" href="styles/main.css"/>
-        <link rel="manifest" href="pwa.manifest"/>
-        <meta name="theme-color" content="white"/>
-        <link rel="icon" href="images/favicon.svg" sizes="any" type="image/svg+xml"/>
-        <link rel="icon" href="images/favicon.png" sizes="192x192" type="image/png"/>
-        <script type="importmap">
-          {
-            "imports": {
-              "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
-              "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
-            }
-          } 
-        </script>
-        <script type="module" defer="defer" src="/scripts/main.js"></script>
-    </head>
-    <body>
-    </body>
+<html lang="en" class="no-js">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Xr dice rolling game | XR Project</title>
+		<meta name="description" content="A small xr dice rolling game" />
+		<meta name="keywords" content="3d dice, three.js, cannon-es, webgl, rolling dice, ar dice game, supcom" />
+		<meta name="author" content="Turki Aziz & Sadraoui Imen" />
+		<link rel="shortcut icon" href="images/favicon.ico">
+		<link rel="stylesheet" type="text/css" href="styles/main.css" />
+		<script>
+			document.documentElement.className="js";
+			var supportsCssVars=function(){var e,t=document.createElement("style");
+			return t.innerHTML="root: { --tmp-var: bold; }",document.head.appendChild(t),e=!!(window.CSS&&window.CSS.supports&&window.CSS.supports("font-weight","var(--tmp-var)")),t.parentNode.removeChild(t),e};
+			supportsCssVars()||alert("Please check your css.");
+		</script>
+	</head>
+	<body>
+		<main>
+			<div class="content">
+				<canvas id="canvas"></canvas>
+				<div class="ui-controls">
+					<div class="score">
+						<div>A XR Dice Small game in which you can roll the dice and get your score.</div>
+						Score: <span id="score-result"></span>
+					</div>
+					<button id="roll-btn">Throw the dice</button>
+				</div>
+			</div>
+		</main>
+		<script type="importmap">
+		  {
+			"imports": {
+			  "three": "https://unpkg.com/three@0.138.0/build/three.module.js",
+			  "three/addons/": "https://unpkg.com/three@0.138.0/examples/jsm/"
+			}
+		  }
+		</script>
+		<script src="https://tympanus.net/codrops/adpacks/cda_sponsor.js"></script>
+		<script type="module" src="./scripts/main.js"></script>
+	</body>
 </html>

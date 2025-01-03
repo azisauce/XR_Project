@@ -22,6 +22,10 @@ const diceArray = [];
 initPhysics();
 initScene();
 
+const SHAKE_THRESHOLD = 15;
+const SHAKE_TIMEOUT = 1000;
+let lastUpdate = 0;
+
 
 function handleDeviceMotion(event) {
     const currentTime = new Date().getTime();

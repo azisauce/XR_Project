@@ -22,12 +22,10 @@ const diceArray = [];
 initPhysics();
 initScene();
 
-let lastUpdate = 0;
 let isShaking = false;
 let shakeTimer = null;
 const SHAKE_THRESHOLD = 15;
 const SHAKE_TIMEOUT = 500;
-const SHAKE_CHECK_INTERVAL = 100;
 
 
 function handleDeviceMotion(event) {

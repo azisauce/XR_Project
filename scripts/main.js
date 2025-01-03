@@ -22,27 +22,35 @@ const diceArray = [];
 initPhysics();
 initScene();
 
-const SHAKE_THRESHOLD = 15;
-const SHAKE_TIMEOUT = 1000;
 let lastUpdate = 0;
+let isShaking = false;
+let shakeTimer = null;
+const SHAKE_THRESHOLD = 15;
+const SHAKE_TIMEOUT = 500;
+const SHAKE_CHECK_INTERVAL = 100;
 
 
 function handleDeviceMotion(event) {
-    const currentTime = new Date().getTime();
-    if ((currentTime - lastUpdate) > SHAKE_TIMEOUT) {
-        const acceleration = event.accelerationIncludingGravity;
-        if (!acceleration) return;
-        
-        const x = acceleration.x || 0;
-        const y = acceleration.y || 0;
-        const z = acceleration.z || 0;
-        
-        const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
-        
-        if (totalAcceleration > SHAKE_THRESHOLD) {
-            lastUpdate = currentTime;
-            throwDice();
+    const acceleration = event.accelerationIncludingGravity;
+    if (!acceleration) return;
+    
+    const x = acceleration.x || 0;
+    const y = acceleration.y || 0;
+    const z = acceleration.z || 0;
+    
+    const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
+    
+    if (totalAcceleration > SHAKE_THRESHOLD) {
+        isShaking = true;
+        if (shakeTimer) {
+            clearTimeout(shakeTimer);
         }
+        shakeTimer = setTimeout(() => {
+            if (isShaking) {
+                isShaking = false;
+                throwDice();
+            }
+        }, SHAKE_TIMEOUT);
     }
 }
 window.addEventListener('resize', updateSceneSize);

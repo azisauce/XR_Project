@@ -27,6 +27,25 @@ let shakeTimer = null;
 const SHAKE_THRESHOLD = 15;
 const SHAKE_TIMEOUT = 500;
 
+/**
+ * Handles device motion events to detect shaking and trigger dice throw
+ * @param {DeviceMotionEvent} event - The device motion event object
+ * @returns {void}
+ * 
+ * @description
+ * This function:
+ * 1. Extracts acceleration data including gravity from the device motion event
+ * 2. Calculates total acceleration using x, y, z components
+ * 3. Detects shake gestures when acceleration exceeds threshold
+ * 4. Implements a debounce timer to prevent multiple rapid shake detections
+ * 5. Triggers dice throw when shake gesture is complete
+ * 
+ * @requires SHAKE_THRESHOLD - Global constant defining minimum acceleration for shake detection
+ * @requires SHAKE_TIMEOUT - Global constant defining debounce timeout duration
+ * @requires isShaking - Global variable tracking shake state
+ * @requires shakeTimer - Global variable for debounce timeout
+ * @requires throwDice - Global function to execute dice throw
+ */
 
 function handleDeviceMotion(event) {
     const acceleration = event.accelerationIncludingGravity;
@@ -161,6 +180,30 @@ function createDice() {
     return {mesh, body};
 }
 
+/**
+ * Creates a modified box geometry with rounded edges and notched surfaces.
+ * 
+ * @function createBoxGeometry
+ * @returns {THREE.BufferGeometry} Modified box geometry with rounded edges and notches
+ * 
+ * @description
+ * This function creates a box geometry and modifies it in the following ways:
+ * 1. Rounds the edges based on params.edgeRadius
+ * 2. Adds notches to the surfaces based on params.notchRadius and params.notchDepth
+ * 
+ * Uses helper functions:
+ * - notchWave(v) - Creates a cosine wave pattern for notch depth calculation
+ * - notch(pos) - Applies the notch wave pattern to a given position
+ * 
+ * @requires THREE - Three.js library
+ * @requires BufferGeometryUtils - Three.js BufferGeometryUtils for vertex merging
+ * 
+ * @param {Object} params - Expected global parameters:
+ * @param {number} params.segments - Number of segments for the box geometry
+ * @param {number} params.edgeRadius - Radius for edge rounding
+ * @param {number} params.notchRadius - Radius of the notch pattern
+ * @param {number} params.notchDepth - Depth of the notches
+ */
 function createBoxGeometry() {
 
     let boxGeometry = new THREE.BoxGeometry(1, 1, 1, params.segments, params.segments, params.segments);
@@ -247,6 +290,15 @@ function createBoxGeometry() {
     return boxGeometry;
 }
 
+/**
+ * Creates a merged buffer geometry consisting of six planes arranged in a cube-like formation.
+ * Each plane is positioned and rotated to form the inner surfaces of a dice.
+ * The planes are offset from the center and sized according to the edge radius parameter.
+ * 
+ * @returns {THREE.BufferGeometry} A merged buffer geometry of six transformed planes.
+ * @requires THREE
+ * @requires BufferGeometryUtils
+ */
 function createInnerGeometry() {
     const baseGeometry = new THREE.PlaneGeometry(1 - 2 * params.edgeRadius, 1 - 2 * params.edgeRadius);
     const offset = .48;
@@ -260,6 +312,17 @@ function createInnerGeometry() {
     ], false);
 }
 
+/**
+ * Adds event listeners to handle dice rolling results when the dice comes to rest
+ * @param {Object} dice - The dice object containing a physics body
+ * @param {CANNON.Body} dice.body - The physics body of the dice
+ * @description This function adds a 'sleep' event listener to the dice's physics body.
+ * When the dice stops moving (enters sleep state), it calculates the orientation
+ * using Euler angles to determine which face is up. The function then calls
+ * showRollResults with the corresponding dice value (1-6). If the dice lands
+ * on an edge, it allows the physics simulation to continue until the dice
+ * falls on a face.
+ */
 function addDiceEvents(dice) {
     dice.body.addEventListener('sleep', (e) => {
 
@@ -314,6 +377,14 @@ function showRollResults(score) {
     }
 }
 
+/**
+ * Renders the physics simulation and updates the visual representation of dice.
+ * This function is called recursively using requestAnimationFrame to create a continuous animation loop.
+ * Updates the position and rotation of each dice mesh based on its physics body state,
+ * steps the physics world simulation forward, and renders the scene.
+ * @function render
+ * @returns {void}
+ */
 function render() {
     physicsWorld.fixedStep();
 

@@ -80,13 +80,13 @@ canvas {
 .ui-controls #score-result {
 	display: inline-block;
 	min-width: 1.8em;
-	color: #85A947;
+	color: #ff763b;
 }
 .ui-controls #score-result:after {
 	content: "\200b";
 }
 .ui-controls #roll-btn {
-	background-color: #3E7B27;
+	background-color: #fa5f1c;
 	font-weight: bold;
 	color: #ffffff;
 	border: none;
@@ -104,5 +104,15 @@ canvas {
 	transform: translateY(2px);
 }
 .ui-controls #roll-btn:hover {
-	background-color: #85A947;
+	background-color: #ff763b;
+}
+
+img {
+	height: 100px;
+	width: 100px;
+}
+
+.shake-it {
+	font-weight: 700;
+    color: #fa5f1c;
 }

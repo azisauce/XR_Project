@@ -9,12 +9,6 @@ const rollBtn = document.querySelector('#roll-btn');
 
 let renderer, scene, camera, diceMesh, physicsWorld;
 
-let currentSession = null;
-let reticle;
-let hitTestSource = null;
-let hitTestSourceRequested = false;
-let xrRefSpace = null;
-
 const params = {
     numberOfDice: 2,
     segments: 40,
@@ -32,72 +26,6 @@ let isShaking = false;
 let shakeTimer = null;
 const SHAKE_THRESHOLD = 15;
 const SHAKE_TIMEOUT = 500;
-
-// Add WebXR button
-function addXRButton() {
-    const button = document.createElement('button');
-    button.style.position = 'absolute';
-    button.style.bottom = '20px';
-    button.style.left = '50%';
-    button.style.transform = 'translateX(-50%)';
-    button.style.padding = '12px 24px';
-    document.body.appendChild(button);
-
-    async function onRequestSession() {
-        try {
-            await checkARCompatibility();
-            
-            const session = await navigator.xr.requestSession('immersive-ar', {
-                optionalFeatures: ['dom-overlay'],
-                domOverlay: { root: document.body },
-                requiredFeatures: ['hit-test', 'local-floor']
-            });
-            
-            onSessionStarted(session);
-        } catch (error) {
-            alert(`AR Setup Error: ${error.message}\n\nPlease ensure:\n1. You're using Chrome on Android\n2. ARCore is installed\n3. Camera permissions are granted`);
-            console.error('AR Setup Error:', error);
-            
-            // If ARCore is not installed, open Play Store
-            if (error.message.includes('ARCore')) {
-                window.location.href = 'https://play.google.com/store/apps/details?id=com.google.ar.core';
-            }
-        }
-    }
-
-    button.textContent = 'Start AR';
-    button.onclick = onRequestSession;
-}
-
-async function checkARCompatibility() {
-    // First check if WebXR is available at all
-    if (!navigator.xr) {
-        throw new Error('WebXR not supported on this browser');
-    }
-
-    // Check if the device supports immersive-ar mode
-    const isARSupported = await navigator.xr.isSessionSupported('immersive-ar');
-    if (!isARSupported) {
-        throw new Error('AR not supported on this device');
-    }
-
-    // Check if ARCore is installed (Android)
-    if (/Android/i.test(navigator.userAgent)) {
-        try {
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            document.body.appendChild(iframe);
-            iframe.src = 'market://details?id=com.google.ar.core';
-            
-            // Remove iframe after check
-            setTimeout(() => {
-                document.body.removeChild(iframe);
-            }, 100);
-        } catch (e) {
-            throw new Error('ARCore not installed. Please install ARCore from the Play Store.');
-        }
-    }
-}
 
 /**
  * Handles device motion events to detect shaking and trigger dice throw
@@ -156,21 +84,12 @@ function initScene() {
         canvas: canvasEl
     });
     renderer.shadowMap.enabled = true
-    // renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     scene = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, .1, 300)
-    // camera.position.set(0, .5, 4).multiplyScalar(7);
-
-    // Create reticle
-    reticle = new THREE.Mesh(
-        new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2),
-        new THREE.MeshBasicMaterial()
-    );
-    reticle.matrixAutoUpdate = false;
-    reticle.visible = false;
-    scene.add(reticle);
+    camera.position.set(0, .5, 4).multiplyScalar(7);
 
     updateSceneSize();
 
@@ -195,31 +114,6 @@ function initScene() {
     throwDice();
 
     render();
-
-    addXRButton();
-}
-
-async function onSessionStarted(session) {
-    currentSession = session;
-    renderer.xr.setReferenceSpaceType('local-floor');
-    await renderer.xr.setSession(session);
-    
-    xrRefSpace = await session.requestReferenceSpace('local-floor');
-    session.requestHitTestSource({ space: xrRefSpace })
-        .then((source) => {
-            hitTestSource = source;
-        });
-
-    session.addEventListener('end', onSessionEnded);
-    renderer.setAnimationLoop(render);
-}
-
-function onSessionEnded() {
-    currentSession.removeEventListener('end', onSessionEnded);
-    currentSession = null;
-    hitTestSource = null;
-    hitTestSourceRequested = false;
-    renderer.setAnimationLoop(null);
 }
 
 function initPhysics() {
@@ -491,36 +385,16 @@ function showRollResults(score) {
  * @function render
  * @returns {void}
  */
-function render(timestamp, frame) {
-    if (frame) {
-        if (hitTestSourceRequested === false) {
-            frame.session.requestHitTestSource({ space: xrRefSpace })
-                .then((source) => {
-                    hitTestSource = source;
-                });
-            hitTestSourceRequested = true;
-        }
-
-        if (hitTestSource) {
-            const hitTestResults = frame.getHitTestResults(hitTestSource);
-            if (hitTestResults.length > 0) {
-                const hit = hitTestResults[0];
-                reticle.visible = true;
-                reticle.matrix.fromArray(hit.getPose(xrRefSpace).transform.matrix);
-            } else {
-                reticle.visible = false;
-            }
-        }
-    }
-
-    // Update physics and dice positions
+function render() {
     physicsWorld.fixedStep();
+
     for (const dice of diceArray) {
-        dice.mesh.position.copy(dice.body.position);
-        dice.mesh.quaternion.copy(dice.body.quaternion);
+        dice.mesh.position.copy(dice.body.position)
+        dice.mesh.quaternion.copy(dice.body.quaternion)
     }
 
     renderer.render(scene, camera);
+    requestAnimationFrame(render);
 }
 
 function updateSceneSize() {
@@ -530,34 +404,25 @@ function updateSceneSize() {
 }
 
 function throwDice() {
-    if (reticle.visible) {
-        const position = new THREE.Vector3();
-        const rotation = new THREE.Quaternion();
-        const scale = new THREE.Vector3();
-        reticle.matrix.decompose(position, rotation, scale);
+    scoreResult.innerHTML = '';
 
-        scoreResult.innerHTML = '';
-        diceArray.forEach((d, dIdx) => {
-            d.body.velocity.setZero();
-            d.body.angularVelocity.setZero();
+    diceArray.forEach((d, dIdx) => {
 
-            d.body.position = new CANNON.Vec3(
-                position.x + (dIdx * 0.2),
-                position.y + 1.5,
-                position.z
-            );
-            d.mesh.position.copy(d.body.position);
+        d.body.velocity.setZero();
+        d.body.angularVelocity.setZero();
 
-            d.mesh.rotation.set(2 * Math.PI * Math.random(), 0, 2 * Math.PI * Math.random());
-            d.body.quaternion.copy(d.mesh.quaternion);
+        d.body.position = new CANNON.Vec3(6, dIdx * 1.5, 0);
+        d.mesh.position.copy(d.body.position);
 
-            const force = 3 + 5 * Math.random();
-            d.body.applyImpulse(
-                new CANNON.Vec3(-force, force, 0),
-                new CANNON.Vec3(0, 0, 0.2)
-            );
+        d.mesh.rotation.set(2 * Math.PI * Math.random(), 0, 2 * Math.PI * Math.random())
+        d.body.quaternion.copy(d.mesh.quaternion);
 
-            d.body.allowSleep = true;
-        });
-    }
+        const force = 3 + 5 * Math.random();
+        d.body.applyImpulse(
+            new CANNON.Vec3(-force, force, 0),
+            new CANNON.Vec3(0, 0, .2)
+        );
+
+        d.body.allowSleep = true;
+    });
 }

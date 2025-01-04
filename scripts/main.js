@@ -52,7 +52,7 @@ function handleDeviceOrientation(event) {
     
 
     // Normalize deltaAlpha to keep it between -PI and PI
-    deltaAlpha = ((deltaAlpha + Math.PI) % (2 * Math.PI)) - Math.PI;
+    deltaAlpha = - ((deltaAlpha + Math.PI) % (2 * Math.PI)) - Math.PI;
 
     // Create quaternions for each rotation
     const quaternionY = new THREE.Quaternion().setFromAxisAngle(

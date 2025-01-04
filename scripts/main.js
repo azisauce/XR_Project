@@ -3,78 +3,126 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 
-class CustomDeviceOrientationControls {
-    constructor(camera) {
-        this.camera = camera;
-        this.enabled = false;
-        this.deviceOrientation = {};
-        this.screenOrientation = 0;
-        this.alphaOffset = 0;
+THREE.DeviceOrientationControls = function( object ) {
 
-        // Bind methods
-        this.onDeviceOrientationChangeEvent = this.onDeviceOrientationChangeEvent.bind(this);
-        this.onScreenOrientationChangeEvent = this.onScreenOrientationChangeEvent.bind(this);
+	var scope = this;
 
-        // Initialize listeners
-        if (window.DeviceOrientationEvent) {
-            window.addEventListener('deviceorientation', this.onDeviceOrientationChangeEvent);
-            window.addEventListener('orientationchange', this.onScreenOrientationChangeEvent);
-        }
-    }
+	this.object = object;
+	this.object.rotation.reorder( "YXZ" );
 
-    onDeviceOrientationChangeEvent(event) {
-        this.deviceOrientation = event;
-    }
+	this.enabled = true;
 
-    onScreenOrientationChangeEvent() {
-        this.screenOrientation = window.orientation || 0;
-    }
+	this.deviceOrientation = {};
+	this.screenOrientation = 0;
 
-    update() {
-        if (!this.enabled) return;
+	this.alpha = 0;
+	this.alphaOffsetAngle = 0;
+	this.betaOffsetAngle = 0;
+	this.gammaOffsetAngle = 0;
 
-        const device = this.deviceOrientation;
-        if (!device) return;
 
-        const alpha = device.alpha ? THREE.MathUtils.degToRad(device.alpha) + this.alphaOffset : 0; // Z
-        const beta = device.beta ? THREE.MathUtils.degToRad(device.beta) : 0; // X'
-        const gamma = device.gamma ? THREE.MathUtils.degToRad(device.gamma) : 0; // Y''
+	var onDeviceOrientationChangeEvent = function( event ) {
 
-        const orient = this.screenOrientation ? THREE.MathUtils.degToRad(this.screenOrientation) : 0;
+		scope.deviceOrientation = event;
 
-        this.camera.quaternion.setFromEuler(new THREE.Euler(
-            beta,
-            alpha,
-            -gamma,
-            'YXZ'
-        ));
+	};
 
-        // Adjust for screen orientation
-        this.camera.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(
-            new THREE.Vector3(0, 0, 1),
-            -orient
-        ));
-    }
+	var onScreenOrientationChangeEvent = function() {
 
-    connect() {
-        this.enabled = true;
-        this.onScreenOrientationChangeEvent();
-        
-        // Reset alpha offset when connecting
-        if (this.deviceOrientation && this.deviceOrientation.alpha) {
-            this.alphaOffset = -THREE.MathUtils.degToRad(this.deviceOrientation.alpha);
-        }
-    }
+		scope.screenOrientation = window.orientation || 0;
 
-    disconnect() {
-        this.enabled = false;
-    }
+	};
 
-    dispose() {
-        window.removeEventListener('deviceorientation', this.onDeviceOrientationChangeEvent);
-        window.removeEventListener('orientationchange', this.onScreenOrientationChangeEvent);
-    }
-}
+	// The angles alpha, beta and gamma form a set of intrinsic Tait-Bryan angles of type Z-X'-Y''
+
+	var setObjectQuaternion = function() {
+
+		var zee = new THREE.Vector3( 0, 0, 1 );
+
+		var euler = new THREE.Euler();
+
+		var q0 = new THREE.Quaternion();
+
+		var q1 = new THREE.Quaternion( - Math.sqrt( 0.5 ), 0, 0, Math.sqrt( 0.5 ) ); // - PI/2 around the x-axis
+
+		return function( quaternion, alpha, beta, gamma, orient ) {
+
+			euler.set( beta, alpha, - gamma, 'YXZ' ); // 'ZXY' for the device, but 'YXZ' for us
+
+			quaternion.setFromEuler( euler ); // orient the device
+
+			quaternion.multiply( q1 ); // camera looks out the back of the device, not the top
+
+			quaternion.multiply( q0.setFromAxisAngle( zee, - orient ) ); // adjust for screen orientation
+
+		};
+
+	}();
+
+	this.connect = function() {
+
+		onScreenOrientationChangeEvent(); // run once on load
+
+		window.addEventListener( 'orientationchange', onScreenOrientationChangeEvent, false );
+		window.addEventListener( 'deviceorientation', onDeviceOrientationChangeEvent, false );
+
+		scope.enabled = true;
+
+	};
+
+	this.disconnect = function() {
+
+		window.removeEventListener( 'orientationchange', onScreenOrientationChangeEvent, false );
+		window.removeEventListener( 'deviceorientation', onDeviceOrientationChangeEvent, false );
+
+		scope.enabled = false;
+
+	};
+
+	this.update = function() {
+
+		if ( scope.enabled === false ) return;
+
+		var alpha = scope.deviceOrientation.alpha ? THREE.Math.degToRad( scope.deviceOrientation.alpha ) + this.alphaOffsetAngle : 0; // Z
+		var beta = scope.deviceOrientation.beta ? THREE.Math.degToRad( scope.deviceOrientation.beta ) + this.betaOffsetAngle : 0; // X'
+		var gamma = scope.deviceOrientation.gamma ? THREE.Math.degToRad( scope.deviceOrientation.gamma ) + this.gammaOffsetAngle : 0; // Y''
+		var orient = scope.screenOrientation ? THREE.Math.degToRad( scope.screenOrientation ) : 0; // O
+
+		setObjectQuaternion( scope.object.quaternion, alpha, beta, gamma, orient );
+		this.alpha = alpha;
+
+	};
+
+	this.updateAlphaOffsetAngle = function( angle ) {
+
+		this.alphaOffsetAngle = angle;
+		this.update();
+
+	};
+
+	this.updateBetaOffsetAngle = function( angle ) {
+
+		this.betaOffsetAngle = angle;
+		this.update();
+
+	};
+
+	this.updateGammaOffsetAngle = function( angle ) {
+
+		this.gammaOffsetAngle = angle;
+		this.update();
+
+	};
+
+	this.dispose = function() {
+
+		this.disconnect();
+
+	};
+
+	this.connect();
+
+};
 
 const canvasEl = document.querySelector('#canvas');
 const scoreResult = document.querySelector('#score-result');
@@ -222,7 +270,7 @@ function initControls() {
     controlCamera.position.set(0, 0, 0); // Place at center for 360 viewing
 
     // Device orientation controls
-    controls = new CustomDeviceOrientationControls(controlCamera);
+    controls = new DeviceOrientationControls(controlCamera);
     
     // Orbit controls for desktop/fallback
     orbitControls = new OrbitControls(controlCamera, renderer.domElement);
@@ -522,12 +570,18 @@ function render() {
         dice.mesh.quaternion.copy(dice.body.quaternion)
     }
 
-    camera.position.set(0, .5, 4).multiplyScalar(7);
-
     if (controls.enabled) {
         controls.update();
     } else if (orbitControls.enabled) {
         orbitControls.update();
+    }
+
+    camera.position.set(0, .5, 4).multiplyScalar(7);
+
+    if (controls.enabled) {
+        camera.rotation.copy(controls.object.rotation);
+    } else if (orbitControls.enabled) {
+        camera.rotation.copy(orbitControls.object.rotation);
     }
 
     renderer.render(scene, camera);

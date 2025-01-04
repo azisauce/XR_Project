@@ -29,29 +29,71 @@ const diceArray = [];
 
 function handleDeviceOrientation(event) {
     if (!isOrientationEnabled) return;
+
+    // Initialize reference orientation if not set
+    if (!initialOrientation) {
+        initialOrientation = {
+            alpha: event.alpha || 0,
+            beta: event.beta || 0,
+            gamma: event.gamma || 0
+        };
+        return;
+    }
+
+    // Get the current orientation angles
+    const alpha = event.alpha || 0;
+    const beta = event.beta || 0;
+    const gamma = event.gamma || 0;
     
-    // Get orientation angles in radians
-    const alpha = (event.alpha || 0) * Math.PI / 180;  // Z-axis rotation
-    const beta = (event.beta || 0) * Math.PI / 180;    // X-axis rotation
-    const gamma = (event.gamma || 0) * Math.PI / 180;  // Y-axis rotation
+    // Calculate relative angles (difference from initial orientation)
+    let deltaAlpha = ((alpha - initialOrientation.alpha) * Math.PI) / 180;
+    let deltaBeta = ((beta - initialOrientation.beta) * Math.PI) / 180;
+    let deltaGamma = ((gamma - initialOrientation.gamma) * Math.PI) / 180;
     
-    // Calculate camera position using spherical coordinates
-    const phi = beta;  // Vertical angle
-    const theta = alpha; // Horizontal angle
+
+    // Normalize deltaAlpha to keep it between -PI and PI
+    deltaAlpha = ((deltaAlpha + Math.PI) % (2 * Math.PI)) - Math.PI;
+
+    // Create quaternions for each rotation
+    const quaternionY = new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(0, 1, 0),
+        -deltaAlpha
+    );
+    const quaternionX = new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(1, 0, 0),
+        deltaBeta
+    );
+    const quaternionZ = new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(0, 0, 1),
+        deltaGamma
+    );
+
+    // // Calculate camera position using spherical coordinates
+    // const phi = beta;  // Vertical angle
+    // const theta = alpha; // Horizontal angle
     
-    // Calculate camera position
-    const x = params.cameraDistance * Math.sin(phi) * Math.sin(theta);
-    const y = params.cameraDistance * Math.cos(phi);
-    const z = params.cameraDistance * Math.sin(phi) * Math.cos(theta);
+    // // Calculate camera position
+    // const x = params.cameraDistance * Math.sin(phi) * Math.sin(theta);
+    // const y = params.cameraDistance * Math.cos(phi);
+    // const z = params.cameraDistance * Math.sin(phi) * Math.cos(theta);
     
     // Update camera position
-    camera.position.set(x, y, z);
+     // Reset camera position and rotation
+     camera.position.set(0, 0, params.cameraDistance);
+     camera.quaternion.identity();
+    // camera.position.set(x, y, z);
+
+    // Apply rotations in the correct order
+    camera.quaternion.multiply(quaternionY);    // First rotate around Y (left/right)
+    camera.quaternion.multiply(quaternionX);    // Then rotate around X (up/down)
+    camera.quaternion.multiply(quaternionZ);    // Finally apply the tilt
     
-    // Make camera look at the center of the scene
-    camera.lookAt(0, 0, 0);
+    camera.position.applyQuaternion(quaternionY.multiply(quaternionX));
+    // // Make camera look at the center of the scene
+    // camera.lookAt(0, 0, 0);
     
-    // Apply gamma rotation (device tilt)
-    camera.rotateZ(gamma);
+    // // Apply gamma rotation (device tilt)
+    // camera.rotateZ(gamma);
 }
 
 async function requestOrientationPermission() {
@@ -61,6 +103,7 @@ async function requestOrientationPermission() {
             const permission = await DeviceOrientationEvent.requestPermission();
             if (permission === 'granted') {
                 isOrientationEnabled = true;
+                window.addEventListener('deviceorientationabsolute', handleDeviceOrientation, true);
                 window.addEventListener('deviceorientation', handleDeviceOrientation, true);
             }
         } catch (error) {
@@ -69,6 +112,7 @@ async function requestOrientationPermission() {
     } else {
         // For devices that don't require permission
         isOrientationEnabled = true;
+        window.addEventListener('deviceorientationabsolute', handleDeviceOrientation, true);
         window.addEventListener('deviceorientation', handleDeviceOrientation, true);
     }
 }
@@ -149,7 +193,7 @@ function initScene() {
         1000
     );
 
-    camera.position.set(0, params.cameraDistance, 0);
+    camera.position.set(0, 0, params.cameraDistance);
     camera.lookAt(0, 0, 0);
 
     // camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, .1, 300)
@@ -161,10 +205,11 @@ function initScene() {
     scene.add(ambientLight);
 
     const lights = [
-        { pos: [10, 15, 0], intensity: 0.5 },
-        { pos: [-10, 15, 0], intensity: 0.3 },
-        { pos: [0, 15, 10], intensity: 0.3 },
-        { pos: [0, 15, -10], intensity: 0.3 }
+        { pos: [10, 15, 0], intensity: 0.4 },
+        { pos: [-10, 15, 0], intensity: 0.4 },
+        { pos: [0, 15, 10], intensity: 0.4 },
+        { pos: [0, 15, -10], intensity: 0.4 },
+        { pos: [0, -15, 0], intensity: 0.2 }  // Bottom light for better visibility when looking down
     ];
     
     lights.forEach(light => {

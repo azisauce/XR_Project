@@ -15,9 +15,63 @@ const params = {
     edgeRadius: .07,
     notchRadius: .12,
     notchDepth: .1,
+
+    // Camera settings
+    cameraDistance: 7, // Distance from the center
+    minDistance: 5,    // Minimum distance from center
+    maxDistance: 10    // Maximum distance from center
 };
 
+let isOrientationEnabled = false;
+let initialOrientation = null;
+
 const diceArray = [];
+
+function handleDeviceOrientation(event) {
+    if (!isOrientationEnabled) return;
+    
+    // Get orientation angles in radians
+    const alpha = (event.alpha || 0) * Math.PI / 180;  // Z-axis rotation
+    const beta = (event.beta || 0) * Math.PI / 180;    // X-axis rotation
+    const gamma = (event.gamma || 0) * Math.PI / 180;  // Y-axis rotation
+    
+    // Calculate camera position using spherical coordinates
+    const phi = beta;  // Vertical angle
+    const theta = alpha; // Horizontal angle
+    
+    // Calculate camera position
+    const x = params.cameraDistance * Math.sin(phi) * Math.sin(theta);
+    const y = params.cameraDistance * Math.cos(phi);
+    const z = params.cameraDistance * Math.sin(phi) * Math.cos(theta);
+    
+    // Update camera position
+    camera.position.set(x, y, z);
+    
+    // Make camera look at the center of the scene
+    camera.lookAt(0, 0, 0);
+    
+    // Apply gamma rotation (device tilt)
+    camera.rotateZ(gamma);
+}
+
+async function requestOrientationPermission() {
+    if (typeof DeviceOrientationEvent !== 'undefined' && 
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+            const permission = await DeviceOrientationEvent.requestPermission();
+            if (permission === 'granted') {
+                isOrientationEnabled = true;
+                window.addEventListener('deviceorientation', handleDeviceOrientation, true);
+            }
+        } catch (error) {
+            console.error('Error requesting device orientation permission:', error);
+        }
+    } else {
+        // For devices that don't require permission
+        isOrientationEnabled = true;
+        window.addEventListener('deviceorientation', handleDeviceOrientation, true);
+    }
+}
 
 initPhysics();
 initScene();
@@ -88,21 +142,52 @@ function initScene() {
 
     scene = new THREE.Scene();
 
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, .1, 300)
-    camera.position.set(0, .5, 4).multiplyScalar(7);
+    camera = new THREE.PerspectiveCamera(
+        75, // Wider FOV for better immersion
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+    );
+
+    camera.position.set(0, params.cameraDistance, 0);
+    camera.lookAt(0, 0, 0);
+
+    // camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, .1, 300)
+    // camera.position.set(0, .5, 4).multiplyScalar(7);
 
     updateSceneSize();
 
     const ambientLight = new THREE.AmbientLight(0xffffff, .5);
     scene.add(ambientLight);
-    const topLight = new THREE.PointLight(0xffffff, .5);
-    topLight.position.set(10, 15, 0);
-    topLight.castShadow = true;
-    topLight.shadow.mapSize.width = 2048;
-    topLight.shadow.mapSize.height = 2048;
-    topLight.shadow.camera.near = 5;
-    topLight.shadow.camera.far = 400;
-    scene.add(topLight);
+
+    const lights = [
+        { pos: [10, 15, 0], intensity: 0.5 },
+        { pos: [-10, 15, 0], intensity: 0.3 },
+        { pos: [0, 15, 10], intensity: 0.3 },
+        { pos: [0, 15, -10], intensity: 0.3 }
+    ];
+    
+    lights.forEach(light => {
+        const pointLight = new THREE.PointLight(0xffffff, light.intensity);
+        pointLight.position.set(...light.pos);
+        pointLight.castShadow = true;
+        pointLight.shadow.mapSize.width = 2048;
+        pointLight.shadow.mapSize.height = 2048;
+        pointLight.shadow.camera.near = 5;
+        pointLight.shadow.camera.far = 400;
+        scene.add(pointLight);
+    });
+
+    // const ambientLight = new THREE.AmbientLight(0xffffff, .5);
+    // scene.add(ambientLight);
+    // const topLight = new THREE.PointLight(0xffffff, .5);
+    // topLight.position.set(10, 15, 0);
+    // topLight.castShadow = true;
+    // topLight.shadow.mapSize.width = 2048;
+    // topLight.shadow.mapSize.height = 2048;
+    // topLight.shadow.camera.near = 5;
+    // topLight.shadow.camera.far = 400;
+    // scene.add(topLight);
     
     createFloor();
     diceMesh = createDiceMesh();
@@ -110,6 +195,8 @@ function initScene() {
         diceArray.push(createDice());
         addDiceEvents(diceArray[i]);
     }
+
+    requestOrientationPermission();
 
     throwDice();
 
@@ -126,15 +213,24 @@ function initPhysics() {
 
 
 function createFloor() {
+    // const floor = new THREE.Mesh(
+    //     new THREE.PlaneGeometry(1000, 1000),
+    //     new THREE.ShadowMaterial({
+    //         opacity: .1
+    //     })
+    // )
+
     const floor = new THREE.Mesh(
-        new THREE.PlaneGeometry(1000, 1000),
+        new THREE.CircleGeometry(20, 32), // Using circle instead of plane for better 360° view
         new THREE.ShadowMaterial({
-            opacity: .1
+            opacity: 0.2 // Slightly more visible
         })
-    )
+    );
+
     floor.receiveShadow = true;
     floor.position.y = -7;
-    floor.quaternion.setFromAxisAngle(new THREE.Vector3(-1, 0, 0), Math.PI * .5);
+    floor.rotation.x = -Math.PI / 2;
+    // floor.quaternion.setFromAxisAngle(new THREE.Vector3(-1, 0, 0), Math.PI * .5);
     scene.add(floor);
 
     const floorBody = new CANNON.Body({

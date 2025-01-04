@@ -1,8 +1,80 @@
 import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
-import { DeviceOrientationControls } from 'three/addons/controls/DeviceOrientationControls.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+
+class CustomDeviceOrientationControls {
+    constructor(camera) {
+        this.camera = camera;
+        this.enabled = false;
+        this.deviceOrientation = {};
+        this.screenOrientation = 0;
+        this.alphaOffset = 0;
+
+        // Bind methods
+        this.onDeviceOrientationChangeEvent = this.onDeviceOrientationChangeEvent.bind(this);
+        this.onScreenOrientationChangeEvent = this.onScreenOrientationChangeEvent.bind(this);
+
+        // Initialize listeners
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', this.onDeviceOrientationChangeEvent);
+            window.addEventListener('orientationchange', this.onScreenOrientationChangeEvent);
+        }
+    }
+
+    onDeviceOrientationChangeEvent(event) {
+        this.deviceOrientation = event;
+    }
+
+    onScreenOrientationChangeEvent() {
+        this.screenOrientation = window.orientation || 0;
+    }
+
+    update() {
+        if (!this.enabled) return;
+
+        const device = this.deviceOrientation;
+        if (!device) return;
+
+        const alpha = device.alpha ? THREE.MathUtils.degToRad(device.alpha) + this.alphaOffset : 0; // Z
+        const beta = device.beta ? THREE.MathUtils.degToRad(device.beta) : 0; // X'
+        const gamma = device.gamma ? THREE.MathUtils.degToRad(device.gamma) : 0; // Y''
+
+        const orient = this.screenOrientation ? THREE.MathUtils.degToRad(this.screenOrientation) : 0;
+
+        this.camera.quaternion.setFromEuler(new THREE.Euler(
+            beta,
+            alpha,
+            -gamma,
+            'YXZ'
+        ));
+
+        // Adjust for screen orientation
+        this.camera.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(
+            new THREE.Vector3(0, 0, 1),
+            -orient
+        ));
+    }
+
+    connect() {
+        this.enabled = true;
+        this.onScreenOrientationChangeEvent();
+        
+        // Reset alpha offset when connecting
+        if (this.deviceOrientation && this.deviceOrientation.alpha) {
+            this.alphaOffset = -THREE.MathUtils.degToRad(this.deviceOrientation.alpha);
+        }
+    }
+
+    disconnect() {
+        this.enabled = false;
+    }
+
+    dispose() {
+        window.removeEventListener('deviceorientation', this.onDeviceOrientationChangeEvent);
+        window.removeEventListener('orientationchange', this.onScreenOrientationChangeEvent);
+    }
+}
 
 const canvasEl = document.querySelector('#canvas');
 const scoreResult = document.querySelector('#score-result');
@@ -150,7 +222,7 @@ function initControls() {
     controlCamera.position.set(0, 0, 0); // Place at center for 360 viewing
 
     // Device orientation controls
-    controls = new DeviceOrientationControls(controlCamera);
+    controls = new CustomDeviceOrientationControls(controlCamera);
     
     // Orbit controls for desktop/fallback
     orbitControls = new OrbitControls(controlCamera, renderer.domElement);

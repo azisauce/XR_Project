@@ -1,5 +1,6 @@
 import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
-
+import { DeviceOrientationControls } from 'three/addons/controls/DeviceOrientationControls.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -8,6 +9,7 @@ const scoreResult = document.querySelector('#score-result');
 const rollBtn = document.querySelector('#roll-btn');
 
 let renderer, scene, camera, diceMesh, physicsWorld;
+let controls, orbitControls;
 
 const params = {
     numberOfDice: 2,
@@ -103,7 +105,10 @@ function initScene() {
     topLight.shadow.camera.near = 5;
     topLight.shadow.camera.far = 400;
     scene.add(topLight);
-    
+
+    // Initialize controls right after camera setup
+    initControls();
+
     createFloor();
     diceMesh = createDiceMesh();
     for (let i = 0; i < params.numberOfDice; i++) {
@@ -112,8 +117,60 @@ function initScene() {
     }
 
     throwDice();
-
+    requestDeviceOrientationPermission();
     render();
+}
+
+// Add function to handle device orientation permission
+async function requestDeviceOrientationPermission() {
+    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+            const response = await DeviceOrientationEvent.requestPermission();
+            if (response === 'granted') {
+                initDeviceControls();
+            }
+        } catch (error) {
+            console.error('Permission denied:', error);
+            initOrbitControls(); // Fallback to orbit controls
+        }
+    } else {
+        // For devices that don't need permission
+        if (window.DeviceOrientationEvent) {
+            initDeviceControls();
+        } else {
+            initOrbitControls(); // Fallback to orbit controls
+        }
+    }
+}
+
+function initControls() {
+    // Create a new camera for controls
+    // This camera will be controlled by device orientation/orbit while keeping original camera for dice view
+    const controlCamera = camera.clone();
+    controlCamera.position.set(0, 0, 0); // Place at center for 360 viewing
+
+    // Device orientation controls
+    controls = new DeviceOrientationControls(controlCamera);
+    
+    // Orbit controls for desktop/fallback
+    orbitControls = new OrbitControls(controlCamera, renderer.domElement);
+    orbitControls.enableDamping = true;
+    orbitControls.dampingFactor = 0.05;
+    orbitControls.screenSpacePanning = false;
+    
+    // Initially disable both controls until permission is granted
+    controls.enabled = false;
+    orbitControls.enabled = false;
+}
+
+function initDeviceControls() {
+    controls.enabled = true;
+    orbitControls.enabled = false;
+}
+
+function initOrbitControls() {
+    controls.enabled = false;
+    orbitControls.enabled = true;
 }
 
 function initPhysics() {
@@ -391,6 +448,20 @@ function render() {
     for (const dice of diceArray) {
         dice.mesh.position.copy(dice.body.position)
         dice.mesh.quaternion.copy(dice.body.quaternion)
+    }
+
+    if (controls.enabled) {
+        controls.update();
+    } else if (orbitControls.enabled) {
+        orbitControls.update();
+    }
+
+    camera.position.set(0, .5, 4).multiplyScalar(7);
+
+    if (controls.enabled) {
+        camera.rotation.copy(controls.object.rotation);
+    } else if (orbitControls.enabled) {
+        camera.rotation.copy(orbitControls.object.rotation);
     }
 
     renderer.render(scene, camera);

@@ -116,3 +116,11 @@ img {
 	font-weight: 700;
     color: #fa5f1c;
 }
+
+.credits {
+	text-align: center;
+    font-size: 91%;
+    margin-bottom: 3vh;
+    color: #323131;
+	width: 35vw;
+}

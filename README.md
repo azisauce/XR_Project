@@ -2,6 +2,7 @@
 
 ## Description
 A Virtual Reality Progressive Web Application (PWA) that simulates dice rolling using phone movement and orientation. Built with JavaScript and Three.js, the application provides an interactive 3D experience through mobile device sensors.
+
 Live Demo: [https://www.ardicegame.me](https://www.ardicegame.me)
 
 ## Table of Contents

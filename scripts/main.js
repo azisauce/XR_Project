@@ -1,6 +1,6 @@
 import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
-import { DeviceOrientationControls } from 'three/examples/jsm/controls/DeviceOrientationControls';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { DeviceOrientationControls } from 'three/addons/controls/DeviceOrientationControls.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 

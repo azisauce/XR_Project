@@ -3,99 +3,6 @@ import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 
-
-class DeviceOrientationControls {
-    constructor(object) {
-        this.object = object;
-        this.object.rotation.reorder("YXZ");
-
-        this.enabled = true;
-        this.deviceOrientation = {};
-        this.screenOrientation = 0;
-
-        this.alpha = 0;
-        this.alphaOffsetAngle = 0;
-        this.betaOffsetAngle = 0;
-        this.gammaOffsetAngle = 0;
-
-        // Pre-create vectors and quaternions needed for calculations
-        this.zee = new THREE.Vector3(0, 0, 1);
-        this.euler = new THREE.Euler();
-        this.q0 = new THREE.Quaternion();
-        this.q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)); // - PI/2 around the x-axis
-
-        // Bind methods to this instance
-        this.onDeviceOrientationChangeEvent = this.onDeviceOrientationChangeEvent.bind(this);
-        this.onScreenOrientationChangeEvent = this.onScreenOrientationChangeEvent.bind(this);
-        this.setObjectQuaternion = this.setObjectQuaternion.bind(this);
-
-        this.connect();
-    }
-
-    onDeviceOrientationChangeEvent(event) {
-        this.deviceOrientation = event;
-    }
-
-    onScreenOrientationChangeEvent() {
-        this.screenOrientation = window.orientation || 0;
-    }
-
-    setObjectQuaternion(quaternion, alpha, beta, gamma, orient) {
-        this.euler.set(beta, alpha, -gamma, 'YXZ'); // 'ZXY' for the device, but 'YXZ' for us
-        quaternion.setFromEuler(this.euler); // orient the device
-        quaternion.multiply(this.q1); // camera looks out the back of the device, not the top
-        quaternion.multiply(this.q0.setFromAxisAngle(this.zee, -orient)); // adjust for screen orientation
-    }
-
-    connect() {
-        this.onScreenOrientationChangeEvent(); // run once on load
-        window.addEventListener('orientationchange', this.onScreenOrientationChangeEvent, false);
-        window.addEventListener('deviceorientation', this.onDeviceOrientationChangeEvent, false);
-        this.enabled = true;
-    }
-
-    disconnect() {
-        window.removeEventListener('orientationchange', this.onScreenOrientationChangeEvent, false);
-        window.removeEventListener('deviceorientation', this.onDeviceOrientationChangeEvent, false);
-        this.enabled = false;
-    }
-
-    update() {
-        if (this.enabled === false) return;
-
-        const alpha = this.deviceOrientation.alpha ? 
-            THREE.MathUtils.degToRad(this.deviceOrientation.alpha) + this.alphaOffsetAngle : 0; // Z
-        const beta = this.deviceOrientation.beta ? 
-            THREE.MathUtils.degToRad(this.deviceOrientation.beta) + this.betaOffsetAngle : 0; // X'
-        const gamma = this.deviceOrientation.gamma ? 
-            THREE.MathUtils.degToRad(this.deviceOrientation.gamma) + this.gammaOffsetAngle : 0; // Y''
-        const orient = this.screenOrientation ? 
-            THREE.MathUtils.degToRad(this.screenOrientation) : 0; // O
-
-        this.setObjectQuaternion(this.object.quaternion, alpha, beta, gamma, orient);
-        this.alpha = alpha;
-    }
-
-    updateAlphaOffsetAngle(angle) {
-        this.alphaOffsetAngle = angle;
-        this.update();
-    }
-
-    updateBetaOffsetAngle(angle) {
-        this.betaOffsetAngle = angle;
-        this.update();
-    }
-
-    updateGammaOffsetAngle(angle) {
-        this.gammaOffsetAngle = angle;
-        this.update();
-    }
-
-    dispose() {
-        this.disconnect();
-    }
-}
-
 const canvasEl = document.querySelector('#canvas');
 const scoreResult = document.querySelector('#score-result');
 const rollBtn = document.querySelector('#roll-btn');
@@ -170,49 +77,33 @@ window.addEventListener('devicemotion', handleDeviceMotion);
 
 
 function initScene() {
+
     renderer = new THREE.WebGLRenderer({
         alpha: true,
         antialias: true,
         canvas: canvasEl
     });
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = true
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb); // Add sky blue background
 
-    // Create camera with wider FOV for better immersion
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, .1, 300);
-    camera.position.set(0, 2, 8);
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, .1, 300)
+    camera.position.set(0, .5, 4).multiplyScalar(7);
 
-    // Add device orientation controls
-    const controls = new DeviceOrientationControls(camera);
-    
     updateSceneSize();
 
-    // Enhanced lighting for 360 viewing
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    const ambientLight = new THREE.AmbientLight(0xffffff, .5);
     scene.add(ambientLight);
-
-    // Add multiple point lights for better all-around illumination
-    const lights = [
-        { pos: [10, 15, 0], intensity: 0.5 },
-        { pos: [-10, 15, 0], intensity: 0.3 },
-        { pos: [0, 15, 10], intensity: 0.3 },
-        { pos: [0, 15, -10], intensity: 0.3 }
-    ];
-
-    lights.forEach(light => {
-        const pointLight = new THREE.PointLight(0xffffff, light.intensity);
-        pointLight.position.set(...light.pos);
-        pointLight.castShadow = true;
-        pointLight.shadow.mapSize.width = 2048;
-        pointLight.shadow.mapSize.height = 2048;
-        pointLight.shadow.camera.near = 5;
-        pointLight.shadow.camera.far = 400;
-        scene.add(pointLight);
-    });
-
+    const topLight = new THREE.PointLight(0xffffff, .5);
+    topLight.position.set(10, 15, 0);
+    topLight.castShadow = true;
+    topLight.shadow.mapSize.width = 2048;
+    topLight.shadow.mapSize.height = 2048;
+    topLight.shadow.camera.near = 5;
+    topLight.shadow.camera.far = 400;
+    scene.add(topLight);
+    
     createFloor();
     diceMesh = createDiceMesh();
     for (let i = 0; i < params.numberOfDice; i++) {
@@ -222,14 +113,7 @@ function initScene() {
 
     throwDice();
 
-    // Modified render function to update controls
-    function animate() {
-        controls.update();
-        render();
-        requestAnimationFrame(animate);
-    }
-
-    animate();
+    render();
 }
 
 function initPhysics() {

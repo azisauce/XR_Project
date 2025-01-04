@@ -57,7 +57,7 @@ function handleDeviceOrientation(event) {
     // Create quaternions for each rotation
     const quaternionY = new THREE.Quaternion().setFromAxisAngle(
         new THREE.Vector3(0, 1, 0),
-        -deltaAlpha
+        deltaAlpha
     );
     const quaternionX = new THREE.Quaternion().setFromAxisAngle(
         new THREE.Vector3(1, 0, 0),

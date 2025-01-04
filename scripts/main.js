@@ -9,12 +9,19 @@ const rollBtn = document.querySelector('#roll-btn');
 
 let renderer, scene, camera, diceMesh, physicsWorld;
 
+let initialOrientation = null;
+let isOrientationEnabled = false;
+
 const params = {
     numberOfDice: 2,
     segments: 40,
     edgeRadius: .07,
     notchRadius: .12,
     notchDepth: .1,
+
+    maxTiltAngle: Math.PI / 6, // 30 degrees
+    cameraHeight: 7,
+    cameraDistance: 4
 };
 
 const diceArray = [];
@@ -46,6 +53,53 @@ const SHAKE_TIMEOUT = 500;
  * @requires shakeTimer - Global variable for debounce timeout
  * @requires throwDice - Global function to execute dice throw
  */
+
+function handleDeviceOrientation(event) {
+    if (!isOrientationEnabled) return;
+    
+    if (!initialOrientation) {
+        initialOrientation = {
+            beta: event.beta,
+            gamma: event.gamma
+        };
+        return;
+    }
+
+    // Calculate tilt difference from initial position
+    const betaDiff = (event.beta - initialOrientation.beta) * Math.PI / 180;
+    
+    // Clamp the tilt angle
+    const clampedBeta = Math.max(-params.maxTiltAngle, 
+                                Math.min(params.maxTiltAngle, betaDiff));
+    
+    // Update camera position
+    const height = params.cameraHeight * Math.cos(clampedBeta);
+    const depth = params.cameraDistance * Math.cos(clampedBeta);
+    const vertical = params.cameraHeight * Math.sin(clampedBeta);
+    
+    camera.position.set(0, height, depth + vertical);
+    camera.lookAt(0, 0, 0);
+}
+
+// Add permission request for device orientation
+async function requestOrientationPermission() {
+    if (typeof DeviceOrientationEvent !== 'undefined' && 
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+            const permission = await DeviceOrientationEvent.requestPermission();
+            if (permission === 'granted') {
+                isOrientationEnabled = true;
+                window.addEventListener('deviceorientation', handleDeviceOrientation);
+            }
+        } catch (error) {
+            console.error('Error requesting device orientation permission:', error);
+        }
+    } else {
+        // For devices that don't require permission
+        isOrientationEnabled = true;
+        window.addEventListener('deviceorientation', handleDeviceOrientation);
+    }
+}
 
 function handleDeviceMotion(event) {
     const acceleration = event.accelerationIncludingGravity;
@@ -89,7 +143,8 @@ function initScene() {
     scene = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, .1, 300)
-    camera.position.set(0, .5, 4).multiplyScalar(7);
+    camera.position.set(0, params.cameraHeight, params.cameraDistance);
+    camera.lookAt(0, 0, 0);
 
     updateSceneSize();
 
@@ -111,6 +166,8 @@ function initScene() {
         addDiceEvents(diceArray[i]);
     }
 
+    requestOrientationPermission();
+    
     throwDice();
 
     render();

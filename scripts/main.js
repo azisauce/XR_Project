@@ -522,18 +522,12 @@ function render() {
         dice.mesh.quaternion.copy(dice.body.quaternion)
     }
 
+    camera.position.set(0, .5, 4).multiplyScalar(7);
+
     if (controls.enabled) {
         controls.update();
     } else if (orbitControls.enabled) {
         orbitControls.update();
-    }
-
-    camera.position.set(0, .5, 4).multiplyScalar(7);
-
-    if (controls.enabled) {
-        camera.rotation.copy(controls.object.rotation);
-    } else if (orbitControls.enabled) {
-        camera.rotation.copy(orbitControls.object.rotation);
     }
 
     renderer.render(scene, camera);
